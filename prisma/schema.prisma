@@ -1,5 +1,5 @@
-// ERA Fleet Management — data model
-// SQLite is intentional: a single local file, zero DB server to run on a Pi/Mini PC.
+// This is your Prisma schema file.
+// Learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
@@ -10,183 +10,248 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ---------------------------------------------------------------------------
-// People
-// ---------------------------------------------------------------------------
-
-String Role {
-  DRIVER
-  SUPERVISOR
-  MANAGER
-}
-
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  role      Role     @default(DRIVER)
-  slackId   String? // Slack member ID, e.g. "U01ABCDEF" — needed for direct messages
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String     @id @default(cuid())
+  email         String     @unique
+  name          String?
+  password      String
+  role          String     @default("DRIVER") // DRIVER, SUPERVISOR, MANAGER
+  phone         String?
+  driverId      String?
+  isActive      Boolean    @default(true)
 
-  // A driver is normally assigned one vehicle, but can be moved to a spare.
-  assignedVehicle Vehicle? @relation("AssignedDriver")
+  driver        Driver?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
-  // Requests this person opened (driver) or is responsible for (supervisor).
-  requestsOpened     ServiceRequest[] @relation("RequestDriver")
-  requestsSupervised ServiceRequest[] @relation("RequestSupervisor")
-
-  quarterlyReports QuarterlyReport[]
+  @@index([email])
 }
 
-// ---------------------------------------------------------------------------
-// Vehicles
-// ---------------------------------------------------------------------------
+model Driver {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  firstName             String
+  lastName              String
+  driverLicense         String   @unique
+  licenseExpiration     DateTime
+  dateOfHire            DateTime
+  phoneNumber           String
+  emergencyContact      String?
+  emergencyPhone        String?
+
+  assignedVehicleId     String?
+  assignedVehicle       Vehicle? @relation(fields: [assignedVehicleId], references: [id])
+
+  currentStatus         String   @default("AVAILABLE") // AVAILABLE, ASSIGNED, ON_LEAVE
+  safetyRating          Decimal  @db.Decimal(3, 2)
+  accidentsCount        Int      @default(0)
+  violationsCount       Int      @default(0)
+
+  serviceRequests       ServiceRequest[]
+  driverLogs            DriverLog[]
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId])
+  @@index([assignedVehicleId])
+}
 
 model Vehicle {
-  id           String  @id @default(cuid())
-  licensePlate String  @unique
-  unitNumber   String? // internal fleet number, e.g. "Truck 12"
-  make         String?
-  model        String?
-  year         Int?
-  vin          String?
+  id                    String   @id @default(cuid())
+  unitNumber            String   @unique
+  make                  String
+  model                 String
+  year                  Int
+  vin                   String   @unique
+  licensePlate          String   @unique
+  
+  mileage               Int      @default(0)
+  lastServiceDate       DateTime?
+  registrationExpire    DateTime?
+  inspectionExpire      DateTime?
+  insuranceExpire       DateTime?
+  
+  fuelType              String   @default("DIESEL") // DIESEL, GASOLINE, HYBRID, ELECTRIC
+  vin2                  String?
 
-  // Current odometer + when it was last recorded. Used by the oil-life math.
-  currentMileage Int      @default(0)
-  mileageAsOf    DateTime @default(now())
+  assignedDrivers       Driver[]
+  serviceRequests       ServiceRequest[]
+  maintenanceRecords    MaintenanceRecord[]
+  scheduledMaintenance  ScheduledMaintenance[]
+  driverLogs            DriverLog[]
+  quarterlyReviews      QuarterlyReview[]
+  reminders             Reminder[]
 
-  // Oil change tracking (synthetic, 4k–6k mile interval).
-  lastOilChangeMileage Int?
-  lastOilChangeDate    DateTime?
-  oilChangeIntervalMi  Int       @default(5000)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  // Compliance dates — drive the 30-day-out reminders.
-  registrationExpiry DateTime?
-  inspectionExpiry   DateTime?
-  emissionsExpiry    DateTime?
-  insuranceExpiry    DateTime?
-
-  // Equipment IDs verified during the quarterly review.
-  wexCardId           String?
-  turnpikeTransponder String?
-
-  isSpare   Boolean  @default(false)
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // The driver this vehicle is currently assigned to (nullable for spares).
-  assignedDriverId String? @unique
-  assignedDriver   User?   @relation("AssignedDriver", fields: [assignedDriverId], references: [id])
-
-  serviceRequests  ServiceRequest[]
-  quarterlyReports QuarterlyReport[]
-  reminders        MaintenanceReminder[]
-}
-
-// ---------------------------------------------------------------------------
-// Service requests (Workflows A, B, C)
-// ---------------------------------------------------------------------------
-
-String RequestStatus {
-  PENDING // submitted by driver, awaiting scheduling
-  SCHEDULED // shop + date assigned
-  COMPLETE // work done, cost + invoice recorded
-  CANCELLED
-}
-
-String DriverLogistics {
-  RIDING_WITH
-  SPARE_VEHICLE
-  OFFICE_DUTY
+  @@index([unitNumber])
 }
 
 model ServiceRequest {
-  id          String        @id @default(cuid())
-  status      RequestStatus @default(PENDING)
-  issue       String // free-text description from the driver
-  priority    String        @default("normal") // normal | high | urgent
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
+  id                    String   @id @default(cuid())
+  vehicleId             String
+  vehicle               Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  
+  driverId              String
+  driver                Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
 
-  vehicleId String
-  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+  title                 String
+  description           String   @db.Text
+  mileageReported       Int
+  status                String   @default("PENDING") // PENDING, SCHEDULED, COMPLETE, CANCELLED
+  
+  reportedDate          DateTime @default(now())
+  scheduledDate         DateTime?
+  completedDate         DateTime?
+  
+  shop                  String?
+  estimatedCost         Decimal? @db.Decimal(10, 2)
+  actualCost            Decimal? @db.Decimal(10, 2)
+  invoiceUrl            String?
+  
+  notes                 String?  @db.Text
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  driverId String
-  driver   User   @relation("RequestDriver", fields: [driverId], references: [id])
-
-  // Supervisor responsible for this driver/request (for alerts + conflict flags).
-  supervisorId String?
-  supervisor   User?   @relation("RequestSupervisor", fields: [supervisorId], references: [id])
-
-  // --- Scheduling (Workflow B) ---
-  serviceShop      String?
-  scheduledFor     DateTime?
-  logistics        DriverLogistics?
-  logisticsDetail  String? // e.g. the name when RIDING_WITH
-  conflictFlag     Boolean          @default(false)
-  conflictNote     String?
-
-  // --- Invoicing (Workflow C) ---
-  estimatedCost   Float?
-  completedAt     DateTime?
-  invoiceDriveId  String? // Google Drive file ID of the uploaded receipt
-  invoiceDriveUrl String? // webViewLink for quick access
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([status])
 }
 
-// ---------------------------------------------------------------------------
-// Quarterly review form (Workflow E)
-// ---------------------------------------------------------------------------
+model DriverLog {
+  id                    String   @id @default(cuid())
+  vehicleId             String
+  vehicle               Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  
+  driverId              String
+  driver                Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
 
-model QuarterlyReport {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
+  logDate               DateTime
+  mileageStart          Int
+  mileageEnd            Int
+  duration              Int      // minutes
+  
+  logistics             String   @default("RIDING_WITH") // RIDING_WITH, SPARE_VEHICLE, OFFICE_DUTY
+  destination           String?
+  notes                 String?  @db.Text
 
-  vehicleId String
-  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  driverId String
-  driver   User   @relation(fields: [driverId], references: [id])
-
-  reportedMileage   Int
-  insuranceCardPresent Boolean @default(false)
-  registrationValid    Boolean @default(false)
-  wexCardId            String?
-  turnpikeTransponder  String?
-  hiddenIssues         String? // free-text: any maintenance issues the driver noticed
-
-  // Mirrors the period (e.g. "2026-Q2") so reports group cleanly per quarter.
-  period String
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([logDate])
 }
 
-// ---------------------------------------------------------------------------
-// Maintenance reminders (Workflow D) — one row per alert we've already sent,
-// so the cron job is idempotent and never double-notifies.
-// ---------------------------------------------------------------------------
+model QuarterlyReview {
+  id                    String   @id @default(cuid())
+  vehicleId             String
+  vehicle               Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
-String ReminderType {
-  OIL_CHANGE
-  REGISTRATION
-  INSPECTION
-  EMISSIONS
-  INSURANCE
-  QUARTERLY_REVIEW
+  quarter               String   // "Q1", "Q2", "Q3", "Q4"
+  year                  Int
+  mileage               Int
+  
+  oilChangeNeeded       Boolean  @default(false)
+  tireRotationNeeded    Boolean  @default(false)
+  inspectionNeeded      Boolean  @default(false)
+  registrationNeeded    Boolean  @default(false)
+  emissionsNeeded       Boolean  @default(false)
+  insuranceNeeded       Boolean  @default(false)
+  
+  notes                 String?  @db.Text
+  reviewedDate          DateTime?
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([vehicleId, quarter, year])
+  @@index([vehicleId])
 }
 
-model MaintenanceReminder {
-  id        String       @id @default(cuid())
-  type      ReminderType
-  vehicleId String
-  vehicle   Vehicle      @relation(fields: [vehicleId], references: [id])
+model Reminder {
+  id                    String   @id @default(cuid())
+  vehicleId             String
+  vehicle               Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
 
-  // The specific milestone this reminder is about (the expiry date, or the
-  // mileage threshold). Combined with type+vehicle this de-dupes alerts.
-  dueDate     DateTime?
-  dueMileage  Int?
-  message     String
-  sentAt      DateTime  @default(now())
+  type                  String   // OIL_CHANGE, REGISTRATION, INSPECTION, EMISSIONS, INSURANCE, QUARTERLY_REVIEW
+  dueDate               DateTime
+  dueMileage            Int?
+  
+  isCompleted           Boolean  @default(false)
+  completedDate         DateTime?
+  
+  notes                 String?  @db.Text
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  @@unique([vehicleId, type, dueDate, dueMileage])
+  @@index([vehicleId])
+  @@index([dueDate])
+}
+
+model MaintenanceRecord {
+  id                    String   @id @default(cuid())
+  vehicleId             String
+  vehicle               Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  
+  type                  String   // "Oil Change", "Tire Rotation", "Inspection", "Registration", "Emissions", "Insurance", "Repair", "Other"
+  description           String   @db.Text
+  mileageAtService      Int
+  
+  serviceDate           DateTime
+  vendor                String?
+  technician            String?
+  
+  cost                  Decimal  @db.Decimal(10, 2)
+  invoiceUrl            String?
+  
+  nextDueDate           DateTime?
+  nextDueMileage        Int?
+  
+  notes                 String?  @db.Text
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@index([vehicleId])
+  @@index([serviceDate])
+}
+
+model ScheduledMaintenance {
+  id                    String   @id @default(cuid())
+  vehicleId             String
+  vehicle               Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  
+  type                  String   // Oil Change, Inspection, etc.
+  intervalMiles         Int?
+  intervalMonths        Int?
+  
+  lastCompletedDate     DateTime?
+  lastCompletedMileage  Int?
+  
+  nextDueDate           DateTime?
+  nextDueMileage        Int?
+  
+  isActive              Boolean  @default(true)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  
+  @@index([vehicleId])
+}
+
+model MaintenanceTemplate {
+  id                    String   @id @default(cuid())
+  name                  String   @unique
+  type                  String
+  defaultCost           Decimal? @db.Decimal(10, 2)
+  intervalMiles         Int?
+  intervalMonths        Int?
+  description           String?  @db.Text
+  
+  createdAt             DateTime @default(now())
 }
