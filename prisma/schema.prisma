@@ -14,7 +14,7 @@ datasource db {
 // People
 // ---------------------------------------------------------------------------
 
-enum Role {
+String Role {
   DRIVER
   SUPERVISOR
   MANAGER
@@ -90,14 +90,14 @@ model Vehicle {
 // Service requests (Workflows A, B, C)
 // ---------------------------------------------------------------------------
 
-enum RequestStatus {
+String RequestStatus {
   PENDING // submitted by driver, awaiting scheduling
   SCHEDULED // shop + date assigned
   COMPLETE // work done, cost + invoice recorded
   CANCELLED
 }
 
-enum DriverLogistics {
+String DriverLogistics {
   RIDING_WITH
   SPARE_VEHICLE
   OFFICE_DUTY
@@ -166,7 +166,7 @@ model QuarterlyReport {
 // so the cron job is idempotent and never double-notifies.
 // ---------------------------------------------------------------------------
 
-enum ReminderType {
+String ReminderType {
   OIL_CHANGE
   REGISTRATION
   INSPECTION
