@@ -45,7 +45,7 @@ model Driver {
   assignedVehicle       Vehicle? @relation(fields: [assignedVehicleId], references: [id])
 
   currentStatus         String   @default("AVAILABLE") // AVAILABLE, ASSIGNED, ON_LEAVE
-  safetyRating          Decimal  @db.Decimal(3, 2)
+  safetyRating          Float
   accidentsCount        Int      @default(0)
   violationsCount       Int      @default(0)
 
@@ -109,8 +109,8 @@ model ServiceRequest {
   completedDate         DateTime?
   
   shop                  String?
-  estimatedCost         Decimal? @db.Decimal(10, 2)
-  actualCost            Decimal? @db.Decimal(10, 2)
+  estimatedCost         Float?
+  actualCost            Float?
   invoiceUrl            String?
   
   notes                 String?
@@ -206,7 +206,7 @@ model MaintenanceRecord {
   vendor                String?
   technician            String?
   
-  cost                  Decimal  @db.Decimal(10, 2)
+  cost                  Float
   invoiceUrl            String?
   
   nextDueDate           DateTime?
@@ -248,7 +248,7 @@ model MaintenanceTemplate {
   id                    String   @id @default(cuid())
   name                  String   @unique
   type                  String
-  defaultCost           Decimal? @db.Decimal(10, 2)
+  defaultCost           Float?
   intervalMiles         Int?
   intervalMonths        Int?
   description           String?
