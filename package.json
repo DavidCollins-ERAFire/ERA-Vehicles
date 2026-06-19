@@ -1,0 +1,46 @@
+{
+  "name": "era-fleet",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ERA Fleet Management — local-hosted fleet service, scheduling, invoicing and predictive maintenance.",
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:push": "prisma db push",
+    "db:seed": "node prisma/seed.js",
+    "db:studio": "prisma studio",
+    "cron:maintenance": "node scripts/run-maintenance.js"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "dependencies": {
+    "@prisma/client": "5.22.0",
+    "@radix-ui/react-dialog": "1.1.2",
+    "@radix-ui/react-label": "2.1.0",
+    "@radix-ui/react-select": "2.1.2",
+    "@radix-ui/react-slot": "1.1.0",
+    "@slack/web-api": "7.8.0",
+    "class-variance-authority": "0.7.1",
+    "clsx": "2.1.1",
+    "googleapis": "144.0.0",
+    "lucide-react": "0.460.0",
+    "next": "14.2.35",
+    "next-auth": "4.24.10",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "tailwind-merge": "2.5.4",
+    "tailwindcss-animate": "1.0.7"
+  },
+  "devDependencies": {
+    "autoprefixer": "10.4.20",
+    "postcss": "8.4.49",
+    "prisma": "5.22.0",
+    "tailwindcss": "3.4.15"
+  },
+  "engines": {
+    "node": ">=18.18.0"
+  }
+}

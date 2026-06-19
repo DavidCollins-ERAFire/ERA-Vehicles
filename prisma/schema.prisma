@@ -1,0 +1,192 @@
+// ERA Fleet Management — data model
+// SQLite is intentional: a single local file, zero DB server to run on a Pi/Mini PC.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// People
+// ---------------------------------------------------------------------------
+
+enum Role {
+  DRIVER
+  SUPERVISOR
+  MANAGER
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      Role     @default(DRIVER)
+  slackId   String? // Slack member ID, e.g. "U01ABCDEF" — needed for direct messages
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // A driver is normally assigned one vehicle, but can be moved to a spare.
+  assignedVehicle Vehicle? @relation("AssignedDriver")
+
+  // Requests this person opened (driver) or is responsible for (supervisor).
+  requestsOpened     ServiceRequest[] @relation("RequestDriver")
+  requestsSupervised ServiceRequest[] @relation("RequestSupervisor")
+
+  quarterlyReports QuarterlyReport[]
+}
+
+// ---------------------------------------------------------------------------
+// Vehicles
+// ---------------------------------------------------------------------------
+
+model Vehicle {
+  id           String  @id @default(cuid())
+  licensePlate String  @unique
+  unitNumber   String? // internal fleet number, e.g. "Truck 12"
+  make         String?
+  model        String?
+  year         Int?
+  vin          String?
+
+  // Current odometer + when it was last recorded. Used by the oil-life math.
+  currentMileage Int      @default(0)
+  mileageAsOf    DateTime @default(now())
+
+  // Oil change tracking (synthetic, 4k–6k mile interval).
+  lastOilChangeMileage Int?
+  lastOilChangeDate    DateTime?
+  oilChangeIntervalMi  Int       @default(5000)
+
+  // Compliance dates — drive the 30-day-out reminders.
+  registrationExpiry DateTime?
+  inspectionExpiry   DateTime?
+  emissionsExpiry    DateTime?
+  insuranceExpiry    DateTime?
+
+  // Equipment IDs verified during the quarterly review.
+  wexCardId           String?
+  turnpikeTransponder String?
+
+  isSpare   Boolean  @default(false)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The driver this vehicle is currently assigned to (nullable for spares).
+  assignedDriverId String? @unique
+  assignedDriver   User?   @relation("AssignedDriver", fields: [assignedDriverId], references: [id])
+
+  serviceRequests  ServiceRequest[]
+  quarterlyReports QuarterlyReport[]
+  reminders        MaintenanceReminder[]
+}
+
+// ---------------------------------------------------------------------------
+// Service requests (Workflows A, B, C)
+// ---------------------------------------------------------------------------
+
+enum RequestStatus {
+  PENDING // submitted by driver, awaiting scheduling
+  SCHEDULED // shop + date assigned
+  COMPLETE // work done, cost + invoice recorded
+  CANCELLED
+}
+
+enum DriverLogistics {
+  RIDING_WITH
+  SPARE_VEHICLE
+  OFFICE_DUTY
+}
+
+model ServiceRequest {
+  id          String        @id @default(cuid())
+  status      RequestStatus @default(PENDING)
+  issue       String // free-text description from the driver
+  priority    String        @default("normal") // normal | high | urgent
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+
+  driverId String
+  driver   User   @relation("RequestDriver", fields: [driverId], references: [id])
+
+  // Supervisor responsible for this driver/request (for alerts + conflict flags).
+  supervisorId String?
+  supervisor   User?   @relation("RequestSupervisor", fields: [supervisorId], references: [id])
+
+  // --- Scheduling (Workflow B) ---
+  serviceShop      String?
+  scheduledFor     DateTime?
+  logistics        DriverLogistics?
+  logisticsDetail  String? // e.g. the name when RIDING_WITH
+  conflictFlag     Boolean          @default(false)
+  conflictNote     String?
+
+  // --- Invoicing (Workflow C) ---
+  estimatedCost   Float?
+  completedAt     DateTime?
+  invoiceDriveId  String? // Google Drive file ID of the uploaded receipt
+  invoiceDriveUrl String? // webViewLink for quick access
+}
+
+// ---------------------------------------------------------------------------
+// Quarterly review form (Workflow E)
+// ---------------------------------------------------------------------------
+
+model QuarterlyReport {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  vehicleId String
+  vehicle   Vehicle @relation(fields: [vehicleId], references: [id])
+
+  driverId String
+  driver   User   @relation(fields: [driverId], references: [id])
+
+  reportedMileage   Int
+  insuranceCardPresent Boolean @default(false)
+  registrationValid    Boolean @default(false)
+  wexCardId            String?
+  turnpikeTransponder  String?
+  hiddenIssues         String? // free-text: any maintenance issues the driver noticed
+
+  // Mirrors the period (e.g. "2026-Q2") so reports group cleanly per quarter.
+  period String
+}
+
+// ---------------------------------------------------------------------------
+// Maintenance reminders (Workflow D) — one row per alert we've already sent,
+// so the cron job is idempotent and never double-notifies.
+// ---------------------------------------------------------------------------
+
+enum ReminderType {
+  OIL_CHANGE
+  REGISTRATION
+  INSPECTION
+  EMISSIONS
+  INSURANCE
+  QUARTERLY_REVIEW
+}
+
+model MaintenanceReminder {
+  id        String       @id @default(cuid())
+  type      ReminderType
+  vehicleId String
+  vehicle   Vehicle      @relation(fields: [vehicleId], references: [id])
+
+  // The specific milestone this reminder is about (the expiry date, or the
+  // mileage threshold). Combined with type+vehicle this de-dupes alerts.
+  dueDate     DateTime?
+  dueMileage  Int?
+  message     String
+  sentAt      DateTime  @default(now())
+
+  @@unique([vehicleId, type, dueDate, dueMileage])
+}

@@ -1,0 +1,51 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --radius: 0.625rem;
+
+  /* Neutral surfaces */
+  --background: 0 0% 100%;
+  --foreground: 345 30% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 345 30% 12%;
+
+  /* Burgundy primary (#800020 ≈ hsl(345 100% 25%)) */
+  --primary: 345 100% 25%;
+  --primary-foreground: 0 0% 100%;
+
+  /* Gold secondary/accent (#FFD700 ≈ hsl(51 100% 50%)) */
+  --secondary: 51 100% 50%;
+  --secondary-foreground: 345 60% 18%;
+  --accent: 51 100% 50%;
+  --accent-foreground: 345 60% 18%;
+
+  --muted: 345 20% 96%;
+  --muted-foreground: 345 8% 42%;
+
+  --destructive: 0 72% 45%;
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 345 25% 90%;
+  --input: 345 25% 90%;
+  --ring: 345 80% 40%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle branded backdrop for full-page auth/landing screens */
+.era-backdrop {
+  background:
+    radial-gradient(1200px 600px at 100% -10%, rgba(255, 215, 0, 0.08), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(128, 0, 32, 0.12), transparent 55%),
+    #fbf8f6;
+}

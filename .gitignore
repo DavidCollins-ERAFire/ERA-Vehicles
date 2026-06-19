@@ -1,0 +1,31 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next
+/out
+
+# production
+/build
+
+# database (local SQLite file + journal)
+*.sqlite
+*.sqlite-journal
+/prisma/*.db
+/prisma/*.db-journal
+
+# env
+.env
+.env.local
+.env.*.local
+
+# secrets / service-account keys
+/credentials
+*.pem
+google-service-account.json
+
+# misc
+.DS_Store
+*.log
+npm-debug.log*
+.pm2
