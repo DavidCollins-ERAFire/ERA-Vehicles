@@ -100,7 +100,7 @@ model ServiceRequest {
   driver                Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
 
   title                 String
-  description           String   @db.Text
+  description           String
   mileageReported       Int
   status                String   @default("PENDING") // PENDING, SCHEDULED, COMPLETE, CANCELLED
   
@@ -113,7 +113,7 @@ model ServiceRequest {
   actualCost            Decimal? @db.Decimal(10, 2)
   invoiceUrl            String?
   
-  notes                 String?  @db.Text
+  notes                 String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -137,7 +137,7 @@ model DriverLog {
   
   logistics             String   @default("RIDING_WITH") // RIDING_WITH, SPARE_VEHICLE, OFFICE_DUTY
   destination           String?
-  notes                 String?  @db.Text
+  notes                 String?
 
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -163,7 +163,7 @@ model QuarterlyReview {
   emissionsNeeded       Boolean  @default(false)
   insuranceNeeded       Boolean  @default(false)
   
-  notes                 String?  @db.Text
+  notes                 String?
   reviewedDate          DateTime?
 
   createdAt             DateTime @default(now())
@@ -185,7 +185,7 @@ model Reminder {
   isCompleted           Boolean  @default(false)
   completedDate         DateTime?
   
-  notes                 String?  @db.Text
+  notes                 String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -199,7 +199,7 @@ model MaintenanceRecord {
   vehicle               Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   
   type                  String   // "Oil Change", "Tire Rotation", "Inspection", "Registration", "Emissions", "Insurance", "Repair", "Other"
-  description           String   @db.Text
+  description           String
   mileageAtService      Int
   
   serviceDate           DateTime
@@ -212,7 +212,7 @@ model MaintenanceRecord {
   nextDueDate           DateTime?
   nextDueMileage        Int?
   
-  notes                 String?  @db.Text
+  notes                 String?
   
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
@@ -251,7 +251,7 @@ model MaintenanceTemplate {
   defaultCost           Decimal? @db.Decimal(10, 2)
   intervalMiles         Int?
   intervalMonths        Int?
-  description           String?  @db.Text
+  description           String?
   
   createdAt             DateTime @default(now())
 }
